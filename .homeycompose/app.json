@@ -1,0 +1,28 @@
+{
+  "id": "se.anywhere.ivt",
+  "version": "1.0.0",
+  "compatibility": ">=5.0.0",
+  "sdk": 3,
+  "platforms": [
+    "local"
+  ],
+  "name": {
+    "en": "IVT Anywhere"
+  },
+  "description": {
+    "en": "Powered by nature."
+  },
+  "category": [
+    "climate"
+  ],
+  "permissions": [],
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "author": {
+    "name": "Christian Ek",
+    "email": "christian.ek@live.se"
+  }
+}
