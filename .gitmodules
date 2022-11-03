@@ -1,0 +1,3 @@
+[submodule "lib/bosch-xmpp"]
+	path = lib/bosch-xmpp
+	url = https://github.com/robertklep/bosch-xmpp.git
