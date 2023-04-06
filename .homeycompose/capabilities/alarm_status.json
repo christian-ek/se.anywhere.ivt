@@ -1,0 +1,19 @@
+{
+  "type": "boolean",
+  "title": {
+    "en": "Error mode",
+    "sv": "Felläge"
+  },
+  "icon": "/assets/icons/status.svg",
+  "uiComponent": "sensor",
+  "getable": true,
+  "setable": false,
+  "insightsTitleTrue": {
+    "en": "The heat pump has an active error",
+    "sv": "Värmepumpen har en aktiv felkod"
+  },
+  "insightsTitleFalse": {
+    "en": "The heat pump has no longer any active error",
+    "sv": "Värmepumpen har inte längre någon aktiv felkod"
+  }
+}

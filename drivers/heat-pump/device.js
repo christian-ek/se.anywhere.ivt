@@ -28,8 +28,6 @@ class HeatPumpDevice extends Device {
       await this.getDeviceData();
     }, updateInterval);
 
-    await this.registerFlowCards();
-
     this.log('IVT heat pump device has been initialized');
   }
 
@@ -47,40 +45,50 @@ class HeatPumpDevice extends Device {
   }
 
   updateValue(capability, value) {
-    if (capability === 'health_status') {
+    if (capability === 'alarm_status') {
+      if (value === 'ok') {
+        value = false;
+      } else {
+        // Activate alarm
+        value = true;
+      }
+
       if (this.getCapabilityValue(capability) !== value) {
-        // health_status has changed. Trigger card.
-        this.triggerHealthStatusChange(value);
+        this.triggerAlarmStatusChange(value);
       }
     }
+
     this.log(`Setting capability [${capability}] value to: ${value}`);
     this.setCapabilityValue(capability, value).catch(this.error);
   }
 
-  async triggerHealthStatusChange(value) {
-    const tokens = {
-      code: null,
-      description: null,
-    };
-
-    if (value !== 'ok') {
+  async triggerAlarmStatusChange(value) {
+    if (value) {
+      this.log('Alarm status has changed to error. Trigger True card..');
       await this.client.get('/notifications')
         .then((res) => {
-          if (res.values.size > 0) {
-            tokens.code = res.values.map((obj) => obj.ccd).join(', ');
-            tokens.description += res.values.map((obj) => ErrorCodes[obj.ccd].description).join(', ');
-          }
+          const tokens = {
+            code: res.values.map((obj) => obj.ccd).join(', '),
+            description: res.values.map((obj) => {
+              return `${obj.ccd}: ${ErrorCodes[obj.ccd].description}`;
+            }).join(', '),
+          };
+
+          return tokens;
         })
-        .catch((err) => this.log(err));
+        .then(async (tokens) => {
+          this.log(`code: ${tokens.code}`);
+          this.log(`description: ${tokens.description}`);
+          const card = await this.homey.flow.getTriggerCard('alarm_status_true');
+          card.trigger(tokens).catch(this.error);
+        })
+        .catch(this.error);
+    } else {
+      this.log('Alarm status has changed to OK. Trigger False card.');
+
+      const card = await this.homey.flow.getTriggerCard('alarm_status_false');
+      card.trigger().catch(this.error);
     }
-
-    this.healthStatusChangedCard.trigger(tokens)
-      .then(this.log)
-      .catch(this.error);
-  }
-
-  async registerFlowCards() {
-    this.healthStatusChangedCard = await this.homey.flow.getTriggerCard('health_status_changed');
   }
 
   /**

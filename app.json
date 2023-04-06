@@ -37,12 +37,33 @@
     "triggers": [
       {
         "title": {
-          "en": "Health Status has changed",
-          "sv": "Hälsostatus har ändrats"
+          "en": "Error resolved",
+          "sv": "Felet löst"
         },
         "hint": {
-          "en": "This flowcard triggers when the health status has changed.",
-          "sv": "Det här flödeskortet triggas när hälsostatusen har ändrats."
+          "en": "This flowcard triggers when the the errors are resolved in the heatpump.",
+          "sv": "Det här flödeskortet triggas när alla fel har åtgärdats i värmepumpen."
+        },
+        "platforms": [
+          "local"
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=heat-pump"
+          }
+        ],
+        "id": "alarm_status_false"
+      },
+      {
+        "title": {
+          "en": "Error has occured",
+          "sv": "Ett fel har inträffat"
+        },
+        "hint": {
+          "en": "This flowcard triggers when an error occurs on the heat pump.",
+          "sv": "Det här flödeskortet triggas när ett fel inträffar i värmepumpen."
         },
         "platforms": [
           "local"
@@ -74,7 +95,7 @@
             "example": "Connection terminal MC15 and MC16 not equipped with bridge or temperature limiter"
           }
         ],
-        "id": "health_status_changed"
+        "id": "alarm_status_true"
       }
     ]
   },
@@ -89,7 +110,7 @@
         "measure_temperature.return",
         "measure_temperature.outdoor",
         "measure_temperature.water",
-        "health_status"
+        "alarm_status"
       ],
       "capabilitiesOptions": {
         "measure_temperature.supply": {
@@ -206,16 +227,24 @@
     }
   ],
   "capabilities": {
-    "health_status": {
-      "type": "string",
+    "alarm_status": {
+      "type": "boolean",
       "title": {
-        "en": "Health status",
-        "sv": "Hälsostatus"
+        "en": "Error mode",
+        "sv": "Felläge"
       },
       "icon": "/assets/icons/status.svg",
       "uiComponent": "sensor",
       "getable": true,
-      "setable": false
+      "setable": false,
+      "insightsTitleTrue": {
+        "en": "The heat pump has an active error",
+        "sv": "Värmepumpen har en aktiv felkod"
+      },
+      "insightsTitleFalse": {
+        "en": "The heat pump has no longer any active error",
+        "sv": "Värmepumpen har inte längre någon aktiv felkod"
+      }
     }
   }
 }

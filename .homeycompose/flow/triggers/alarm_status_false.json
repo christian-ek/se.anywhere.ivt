@@ -1,0 +1,20 @@
+{
+  "title": {
+    "en": "Error resolved",
+    "sv": "Felet löst"
+  },
+  "hint": {
+    "en": "This flowcard triggers when the the errors are resolved in the heatpump.",
+    "sv": "Det här flödeskortet triggas när alla fel har åtgärdats i värmepumpen."
+  },
+  "platforms": [
+    "local"
+  ],
+  "args": [
+    {
+      "type": "device",
+      "name": "device",
+      "filter": "driver_id=heat-pump"
+    }
+  ]
+}

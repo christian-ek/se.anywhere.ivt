@@ -8,7 +8,7 @@
     "measure_temperature.return",
     "measure_temperature.outdoor",
     "measure_temperature.water",
-    "health_status"
+    "alarm_status"
   ],
   "capabilitiesOptions": {
     "measure_temperature.supply": {

@@ -1,0 +1,40 @@
+{
+  "title": {
+    "en": "Error has occured",
+    "sv": "Ett fel har inträffat"
+  },
+  "hint": {
+    "en": "This flowcard triggers when an error occurs on the heat pump.",
+    "sv": "Det här flödeskortet triggas när ett fel inträffar i värmepumpen."
+  },
+  "platforms": [
+    "local"
+  ],
+  "args": [
+    {
+      "type": "device",
+      "name": "device",
+      "filter": "driver_id=heat-pump"
+    }
+  ],
+  "tokens": [
+    {
+      "name": "code",
+      "type": "string",
+      "title": {
+        "en": "Error code",
+        "sv": "Felkod"
+      },
+      "example": "5284"
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "title": {
+        "en": "Error description",
+        "sv": "Felbeskrivning"
+      },
+      "example": "Connection terminal MC15 and MC16 not equipped with bridge or temperature limiter"
+    }
+  ]
+}
