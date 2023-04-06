@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <script src="../../../assets/vue.min.js"></script>
+  <link rel="stylesheet" href="../../../assets/bootstrap.min.css" />
+</head>
+
+<body>
+  <div id="pair">
+    <div class="row align-items-center alert alert-light" role="alert" id="status"
+      style="width: 100%; margin-left: 0px; margin-right: 0px;">
+      <div class="input-group mb-3">
+        <input v-model="data.serial" type="text" class="form-control hy-nostyle" placeholder="Serial number" />
+      </div>
+      <div class="input-group mb-3">
+        <input v-model="data.key" type="text" class="form-control hy-nostyle" placeholder="Access key" />
+      </div>
+      <div class="input-group mb-3">
+        <input v-model="data.password" type="password" class="form-control hy-nostyle" placeholder="Password" />
+      </div>
+      <div class="input-group mb-3">
+        <small class="form-text text-muted">Polling period, seconds</small>
+      </div>
+      <div class="input-group mb-3">
+        <input v-model="data.interval" type="number" class="form-control hy-nostyle" placeholder="30" min="10" max="3600" />
+      </div>
+      <div class="col">
+        <div class="float-start">{{error}}</div>
+      </div>
+      <div class="col">
+        <button @click="connect" type="button" class="btn btn-outline-dark float-end hy-nostyle" style="height: auto;">Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    Homey.setTitle("Add IVT Heat pump information");
+
+    new Vue({
+      el: "#pair",
+      data: function () {
+        return {
+          data: {
+            serial: '',
+            key: '',
+            password: '',
+            interval: 30
+          },
+          error: ''
+        }
+      },
+      methods: {
+        connect() {
+          let alert = document.getElementById(`status`);
+          alert.classList.remove("alert-danger");
+          alert.classList.add("alert-light");
+
+          Homey.showLoadingOverlay();
+
+
+          Homey.emit("validate_device", this.data, (error, device) => {
+            Homey.hideLoadingOverlay();
+            if (error || ! device) {
+              alert.classList.remove("alert-light");
+              alert.classList.add("alert-danger");
+              this.error = "Error: " + error.message;
+              return
+            }
+            Homey.createDevice(device, function (error, result) {
+                if (error) {
+                  console.error('error adding device', error);
+                  this.error = "Error: " + error.message;
+                  return;
+                }
+                // Success.
+                Homey.done();
+              });
+          });
+        }
+      }
+    });
+  </script>
+</body>
+
+</html>

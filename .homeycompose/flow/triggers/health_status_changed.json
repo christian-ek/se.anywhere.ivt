@@ -1,0 +1,32 @@
+{
+    "title": {
+      "en": "Health Status has changed",
+      "sv": "Hälsostatus har ändrats"
+    },
+    "hint": {
+      "en": "This flowcard triggers when the health status has changed.",
+      "sv": "Det här flödeskortet triggas när hälsostatusen har ändrats."
+    },
+    "platforms": [
+      "local"
+    ],
+    "args": [
+      {
+        "type": "device",
+        "name": "device",
+        "filter": "driver_id=heat-pump"
+      }
+    ],
+    "tokens": [
+      {
+        "name": "ErrorCode",
+        "type": "string",
+        "title": {
+          "en": "Error code",
+          "sv": "Felkod"
+        },
+        "example": 5284
+      }
+    ]
+  }
+  

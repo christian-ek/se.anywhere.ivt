@@ -10,7 +10,8 @@
     "en": "IVT Anywhere"
   },
   "description": {
-    "en": "Powered by nature."
+    "en": "Powered by nature.",
+    "sv": "Drivs av naturen."
   },
   "category": [
     "climate"
@@ -24,5 +25,11 @@
   "author": {
     "name": "Christian Ek",
     "email": "christian.ek@live.se"
+  },
+  "brandColor": "#ef645e",
+  "tags": {
+    "sv": [
+      ""
+    ]
   }
 }

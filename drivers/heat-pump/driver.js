@@ -1,36 +1,79 @@
 'use strict';
 
-const { Driver } = require('homey');
+const Homey = require('homey');
+const Device = require('./device');
 
-class MyDriver extends Driver {
+class HeatPumpDriver extends Homey.Driver {
 
-  /**
-   * onInit is called when the driver is initialized.
-   */
-  async onInit() {
-    this.log('MyDriver has been initialized');
+  // Pairing
+  onPair(session) {
+    this.log('Pairing started');
+    session.setHandler('validate_device', async (data) => {
+      const pairingDevice = {
+        name: 'IVT Heat pump',
+        data: {
+          id: data.serial,
+        },
+        settings: {
+          interval: data.interval,
+          serial: data.serial,
+          key: data.key,
+          password: data.password,
+        },
+      };
+
+      try {
+        await this.validateDevice(pairingDevice);
+        return pairingDevice;
+      } catch (err) {
+        this.log(`There was an error: ${err}`);
+        return Promise.reject(err);
+      }
+    });
   }
 
-  /**
-   * onPairListDevices is called when a user is adding a device
-   * and the 'list_devices' view is called.
-   * This should return an array with the data of devices that are available for pairing.
-   */
-  async onPairListDevices() {
-    return [
-      // Example device data, note that `store` is optional
-      // {
-      //   name: 'My Device',
-      //   data: {
-      //     id: 'my-device',
-      //   },
-      //   store: {
-      //     address: '127.0.0.1',
-      //   },
-      // },
-    ];
+  async validateDevice(data) {
+    this.log('validating new device', data);
+    // Check and see if we can connect to the backend with the supplied credentials.
+    let client;
+    try {
+      client = await Device.prototype.getClient.call(this, data.settings);
+    } catch (e) {
+      this.log('unable to instantiate client:', e.message);
+      throw new Error(e);
+    }
+
+    let device;
+    // Check for duplicate.
+    try {
+      device = this.getDevice(data.data);
+    } catch (err) {
+      // Device does not exist, hooray!
+    }
+
+    if (device instanceof Homey.Device) {
+      this.log('device is already registered');
+      client.end();
+      throw new Error('Device is already registered');
+    }
+
+    // Retrieve status to see if we can successfully load data from backend.
+    try {
+      await client.get('/gateway/versionFirmware');
+    } catch (e) {
+      if (e instanceof SyntaxError) {
+        this.log('invalid credentials');
+        throw new Error('Invalid credentials');
+      }
+      throw new Error(e.message);
+    } finally {
+      client.end();
+    }
+
+    // Everything checks out.
+    return true;
   }
 
 }
 
-module.exports = MyDriver;
+module.exports = HeatPumpDriver;

@@ -1,21 +1,86 @@
 'use strict';
 
 const { Device } = require('homey');
+const { IVTClient } = require('../../lib/bosch-xmpp');
+const Capabilities = require('../../lib/capabilities');
+const ErrorCodes = require('../../lib/capabilities');
 
-class MyDevice extends Device {
+class HeatPumpDevice extends Device {
 
   /**
    * onInit is called when the device is initialized.
    */
   async onInit() {
-    this.log('MyDevice has been initialized');
+    try {
+      this.client = await this.getClient(this.getSettings());
+    } catch (e) {
+      this.log(`unable to initialize device: ${e.message}`);
+      throw e;
+    }
+
+    this.device = this.getData();
+
+    const updateInterval = Number(this.getSetting('interval')) * 1000;
+    const { device } = this;
+    this.log(`[${this.getName()}][${device.id}]`, `Update Interval: ${updateInterval}`);
+    this.log(`[${this.getName()}][${device.id}]`, 'Connected to device');
+    this.interval = setInterval(async () => {
+      await this.getDeviceData();
+    }, updateInterval);
+
+    await this.registerFlowTokens();
+
+    this.log('IVT heat pump device has been initialized');
+  }
+
+  async getDeviceData() {
+    const { device } = this;
+    this.log(`[${this.getName()}][${device.id}]`, 'Refresh device');
+
+    for (const value of Object.values(Capabilities)) {
+      await this.client.get(value.endpoint)
+        .then((res) => {
+          this.updateValue(value.name, res.value);
+        })
+        .catch((err) => this.log(err));
+    }
+
+    await this.client.get('/notifications')
+      .then((res) => {
+        if (res.length > 0) {
+          this.updateTokenValues(res.value);
+        }
+      })
+      .catch((err) => this.log(err));
+  }
+
+  updateValue(capability, value) {
+    this.log(`Setting capability [${capability}] value to: ${value}`);
+    this.setCapabilityValue(capability, value).catch(this.error);
+  }
+
+  updateTokenValues(codes) {
+    this.errorCodeToken.set;
+
+    // let errorText;
+    // codes.array.forEach((element) => {
+    //   errorText += ErrorCodes[element].description;
+    // });
+    // this.errorTextToken.setValue(errorText);
+  }
+
+  async registerFlowTokens() {
+    this.errorCodeToken = await this.homey.flow.getTriggerCard('health_status_changed');
   }
 
   /**
    * onAdded is called when the user adds the device, called just after pairing.
    */
   async onAdded() {
-    this.log('MyDevice has been added');
+    this.log('device added');
+    this.log('name:', this.getName());
+    this.log('class:', this.getClass());
+    this.log('data', this.getData());
   }
 
   /**
@@ -26,8 +91,35 @@ class MyDevice extends Device {
    * @param {string[]} event.changedKeys An array of keys changed since the previous version
    * @returns {Promise<string|void>} return a custom message that will be displayed
    */
-  async onSettings({ oldSettings, newSettings, changedKeys }) {
-    this.log('MyDevice settings where changed');
+  async onSettings({
+    oldSettings,
+    newSettings,
+    changedKeys,
+  }) {
+    const { interval } = this;
+    for (const name of changedKeys) {
+      /* Log setting changes except for password */
+      if (name !== 'password') {
+        this.log(`Setting '${name}' set '${oldSettings[name]}' => '${newSettings[name]}'`);
+      }
+    }
+    if (oldSettings.interval !== newSettings.interval) {
+      this.log(`Delete old interval of ${oldSettings.interval}s and creating new ${newSettings.interval}s`);
+      clearInterval(interval);
+      this.setUpdateInterval(newSettings.interval);
+    }
+  }
+
+  // Get a (connected) instance of the Nefit Easy client.
+  async getClient(settings) {
+    const client = IVTClient({
+      serialNumber: settings.serial,
+      accessKey: settings.key,
+      password: settings.password,
+    });
+    await client.connect();
+    this.log('device connected successfully to backend');
+    return client;
   }
 
   /**
@@ -36,16 +128,27 @@ class MyDevice extends Device {
    * @param {string} name The new name
    */
   async onRenamed(name) {
-    this.log('MyDevice was renamed');
+    this.log(`${name} renamed`);
   }
 
   /**
    * onDeleted is called when the user deleted the device.
    */
   async onDeleted() {
-    this.log('MyDevice has been deleted');
+    const {
+      interval,
+      device,
+    } = this;
+    this.log(`${device.name} deleted`);
+    if (this.client) {
+      this.client.end();
+    }
+    await this.homey.flow.unregisterToken(this.errorCodeToken);
+    await this.homey.flow.unregisterToken(this.errorTextToken);
+
+    clearInterval(interval);
   }
 
 }
 
-module.exports = MyDevice;
+module.exports = HeatPumpDevice;

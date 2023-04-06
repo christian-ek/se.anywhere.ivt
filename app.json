@@ -1,3 +1,211 @@
 {
-  "_comment": "This file is generated. Please edit .homeycompose/app.json instead."
+  "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
+  "id": "se.anywhere.ivt",
+  "version": "1.0.0",
+  "compatibility": ">=5.0.0",
+  "sdk": 3,
+  "platforms": [
+    "local"
+  ],
+  "name": {
+    "en": "IVT Anywhere"
+  },
+  "description": {
+    "en": "Powered by nature.",
+    "sv": "Drivs av naturen."
+  },
+  "category": [
+    "climate"
+  ],
+  "permissions": [],
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "author": {
+    "name": "Christian Ek",
+    "email": "christian.ek@live.se"
+  },
+  "brandColor": "#ef645e",
+  "tags": {
+    "sv": [
+      ""
+    ]
+  },
+  "flow": {
+    "triggers": [
+      {
+        "title": {
+          "en": "Health Status has changed",
+          "sv": "Hälsostatus har ändrats"
+        },
+        "hint": {
+          "en": "This flowcard triggers when the health status has changed.",
+          "sv": "Det här flödeskortet triggas när hälsostatusen har ändrats."
+        },
+        "platforms": [
+          "local"
+        ],
+        "args": [
+          {
+            "type": "device",
+            "name": "device",
+            "filter": "driver_id=heat-pump"
+          }
+        ],
+        "tokens": [
+          {
+            "name": "ErrorCode",
+            "type": "string",
+            "title": {
+              "en": "Error code",
+              "sv": "Felkod"
+            }
+          }
+        ],
+        "id": "health_status_changed"
+      }
+    ]
+  },
+  "drivers": [
+    {
+      "name": {
+        "en": "Heat pump"
+      },
+      "class": "heater",
+      "capabilities": [
+        "measure_temperature.supply",
+        "measure_temperature.return",
+        "measure_temperature.outdoor",
+        "measure_temperature.water",
+        "health_status"
+      ],
+      "capabilitiesOptions": {
+        "measure_temperature.supply": {
+          "title": {
+            "en": "Supply temperature",
+            "sv": "Framledningstemperatur"
+          }
+        },
+        "measure_temperature.return": {
+          "title": {
+            "en": "Return temperature",
+            "sv": "Returtemperatur"
+          }
+        },
+        "measure_temperature.outdoor": {
+          "title": {
+            "en": "Outdoor temperature",
+            "sv": "Utomhustemperatur"
+          }
+        },
+        "measure_temperature.water": {
+          "title": {
+            "en": "Water temperature",
+            "sv": "Vattentemperatur"
+          }
+        }
+      },
+      "platforms": [
+        "local"
+      ],
+      "connectivity": [
+        "lan"
+      ],
+      "images": {
+        "small": "/drivers/heat-pump/assets/images/small.png",
+        "large": "/drivers/heat-pump/assets/images/large.png",
+        "xlarge": "/drivers/heat-pump/assets/images/xlarge.png"
+      },
+      "pair": [
+        {
+          "id": "pair"
+        }
+      ],
+      "id": "heat-pump",
+      "settings": [
+        {
+          "type": "group",
+          "label": {
+            "en": "Server settings",
+            "se": "Serverinställningar"
+          },
+          "children": [
+            {
+              "id": "serial",
+              "type": "text",
+              "label": {
+                "en": "Serial number",
+                "sv": "Serial nummer"
+              },
+              "hint": {
+                "en": "The Serial number on your IVT Heat pump.",
+                "sv": "Serienummret på din IVT Värmepump."
+              },
+              "value": "-"
+            },
+            {
+              "id": "key",
+              "type": "text",
+              "label": {
+                "en": "Access key",
+                "sv": "Access key"
+              },
+              "hint": {
+                "en": "Access key on your IVT Heat pump.",
+                "sv": "Access key på din IVT Värmepump."
+              },
+              "value": "-"
+            },
+            {
+              "id": "password",
+              "type": "password",
+              "label": {
+                "en": "Password",
+                "sv": "Lösenord"
+              },
+              "hint": {
+                "en": "Password to IVT Anywhere.",
+                "sv": "Lösenord till IVT Anywhere."
+              },
+              "value": "-"
+            },
+            {
+              "id": "interval",
+              "type": "number",
+              "label": {
+                "en": "Interval",
+                "sv": "Intervall"
+              },
+              "hint": {
+                "en": "Polling interval for device.",
+                "sv": "Intervall för dataförfrågningar till enhet."
+              },
+              "value": 60,
+              "min": 10,
+              "max": 3600,
+              "units": {
+                "en": "seconds",
+                "sv": "sekunder"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "capabilities": {
+    "health_status": {
+      "type": "string",
+      "title": {
+        "en": "Health status",
+        "sv": "Hälsostatus"
+      },
+      "icon": "/assets/icons/status.svg",
+      "uiComponent": "sensor",
+      "getable": true,
+      "setable": false
+    }
+  }
 }

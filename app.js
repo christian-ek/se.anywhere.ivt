@@ -2,15 +2,21 @@
 
 const Homey = require('homey');
 
-class MyApp extends Homey.App {
+class IVTApp extends Homey.App {
 
   /**
    * onInit is called when the app is initialized.
    */
   async onInit() {
-    this.log('MyApp has been initialized');
+    this.log('IVT Anywhere app has been initialized');
+
+
+  }
+
+  async updateToken(token, value) {
+    await token.setValue(value);
   }
 
 }
 
-module.exports = MyApp;
+module.exports = IVTApp;

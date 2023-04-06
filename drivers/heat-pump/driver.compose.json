@@ -4,10 +4,38 @@
   },
   "class": "heater",
   "capabilities": [
-    "target_temperature",
-    "measure_temperature",
-    "thermostat_mode"
+    "measure_temperature.supply",
+    "measure_temperature.return",
+    "measure_temperature.outdoor",
+    "measure_temperature.water",
+    "health_status"
   ],
+  "capabilitiesOptions": {
+    "measure_temperature.supply": {
+      "title": {
+        "en": "Supply temperature",
+        "sv": "Framledningstemperatur"
+      }
+    },
+    "measure_temperature.return": {
+      "title": {
+        "en": "Return temperature",
+        "sv": "Returtemperatur"
+      }
+    },
+    "measure_temperature.outdoor": {
+      "title": {
+        "en": "Outdoor temperature",
+        "sv": "Utomhustemperatur"
+      }
+    },
+    "measure_temperature.water": {
+      "title": {
+        "en": "Water temperature",
+        "sv": "Vattentemperatur"
+      }
+    }
+  },
   "platforms": [
     "local"
   ],
@@ -18,5 +46,10 @@
     "small": "{{driverAssetsPath}}/images/small.png",
     "large": "{{driverAssetsPath}}/images/large.png",
     "xlarge": "{{driverAssetsPath}}/images/xlarge.png"
-  }
+  },
+  "pair": [
+    {
+      "id": "pair"
+    }
+  ]
 }
