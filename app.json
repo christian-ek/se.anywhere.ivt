@@ -56,12 +56,22 @@
         ],
         "tokens": [
           {
-            "name": "ErrorCode",
+            "name": "code",
             "type": "string",
             "title": {
               "en": "Error code",
               "sv": "Felkod"
-            }
+            },
+            "example": "5284"
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "title": {
+              "en": "Error description",
+              "sv": "Felbeskrivning"
+            },
+            "example": "Connection terminal MC15 and MC16 not equipped with bridge or temperature limiter"
           }
         ],
         "id": "health_status_changed"

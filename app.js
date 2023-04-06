@@ -9,12 +9,6 @@ class IVTApp extends Homey.App {
    */
   async onInit() {
     this.log('IVT Anywhere app has been initialized');
-
-
-  }
-
-  async updateToken(token, value) {
-    await token.setValue(value);
   }
 
 }

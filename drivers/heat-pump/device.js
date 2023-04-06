@@ -3,7 +3,7 @@
 const { Device } = require('homey');
 const { IVTClient } = require('../../lib/bosch-xmpp');
 const Capabilities = require('../../lib/capabilities');
-const ErrorCodes = require('../../lib/capabilities');
+const ErrorCodes = require('../../lib/errorcodes');
 
 class HeatPumpDevice extends Device {
 
@@ -28,7 +28,7 @@ class HeatPumpDevice extends Device {
       await this.getDeviceData();
     }, updateInterval);
 
-    await this.registerFlowTokens();
+    await this.registerFlowCards();
 
     this.log('IVT heat pump device has been initialized');
   }
@@ -44,33 +44,43 @@ class HeatPumpDevice extends Device {
         })
         .catch((err) => this.log(err));
     }
-
-    await this.client.get('/notifications')
-      .then((res) => {
-        if (res.length > 0) {
-          this.updateTokenValues(res.value);
-        }
-      })
-      .catch((err) => this.log(err));
   }
 
   updateValue(capability, value) {
+    if (capability === 'health_status') {
+      if (this.getCapabilityValue(capability) !== value) {
+        // health_status has changed. Trigger card.
+        this.triggerHealthStatusChange(value);
+      }
+    }
     this.log(`Setting capability [${capability}] value to: ${value}`);
     this.setCapabilityValue(capability, value).catch(this.error);
   }
 
-  updateTokenValues(codes) {
-    this.errorCodeToken.set;
+  async triggerHealthStatusChange(value) {
+    const tokens = {
+      code: null,
+      description: null,
+    };
 
-    // let errorText;
-    // codes.array.forEach((element) => {
-    //   errorText += ErrorCodes[element].description;
-    // });
-    // this.errorTextToken.setValue(errorText);
+    if (value !== 'ok') {
+      await this.client.get('/notifications')
+        .then((res) => {
+          if (res.values.size > 0) {
+            tokens.code = res.values.map((obj) => obj.ccd).join(', ');
+            tokens.description += res.values.map((obj) => ErrorCodes[obj.ccd].description).join(', ');
+          }
+        })
+        .catch((err) => this.log(err));
+    }
+
+    this.healthStatusChangedCard.trigger(tokens)
+      .then(this.log)
+      .catch(this.error);
   }
 
-  async registerFlowTokens() {
-    this.errorCodeToken = await this.homey.flow.getTriggerCard('health_status_changed');
+  async registerFlowCards() {
+    this.healthStatusChangedCard = await this.homey.flow.getTriggerCard('health_status_changed');
   }
 
   /**
@@ -117,8 +127,9 @@ class HeatPumpDevice extends Device {
       accessKey: settings.key,
       password: settings.password,
     });
-    await client.connect();
-    this.log('device connected successfully to backend');
+    await client.connect()
+      .then(this.log('device connected successfully to backend'));
+
     return client;
   }
 
