@@ -18,12 +18,11 @@ class HeatPumpDevice extends Device {
       throw e;
     }
 
-    this.device = this.getData();
-
     const updateInterval = Number(this.getSetting('interval')) * 1000;
-    const { device } = this;
-    this.log(`[${this.getName()}][${device.id}]`, `Update Interval: ${updateInterval}`);
-    this.log(`[${this.getName()}][${device.id}]`, 'Connected to device');
+    this.data = this.getData();
+
+    this.log(`[${this.getName()}][${this.data.id}]`, `Update Interval: ${updateInterval}`);
+    this.log(`[${this.getName()}][${this.data.id}]`, 'Connected to device');
     this.interval = setInterval(async () => {
       await this.getDeviceData();
     }, updateInterval);
@@ -32,8 +31,7 @@ class HeatPumpDevice extends Device {
   }
 
   async getDeviceData() {
-    const { device } = this;
-    this.log(`[${this.getName()}][${device.id}]`, 'Refresh device');
+    this.log(`[${this.getName()}][${this.data.id}]`, 'Refresh device');
 
     for (const value of Object.values(Capabilities)) {
       await this.client.get(value.endpoint)
@@ -65,26 +63,25 @@ class HeatPumpDevice extends Device {
   async triggerAlarmStatusChange(value) {
     if (value) {
       this.log('Alarm status has changed to error. Trigger ERROR card..');
-      await this.client.get('/notifications')
-        .then((res) => {
-          const tokens = {
-            code: res.values.map((obj) => obj.ccd).join(', '),
-            description: res.values.map((obj) => {
-              return `${obj.ccd}: ${ErrorCodes[obj.ccd].description}`;
-            }).join(', '),
-          };
+      const res = await this.client.get('/notifications');
 
-          return tokens;
-        })
-        .then(async (tokens) => {
-          this.log(`code: ${tokens.code}`);
-          this.log(`description: ${tokens.description}`);
-          this.homey.flow.getTriggerCard('alarm_status_error').trigger(tokens).then(this.log).catch(this.error);
-        })
+      const tokens = {
+        code: res.values.map((obj) => obj.ccd).join(', '),
+        description: res.values.map((obj) => {
+          return `${obj.ccd}: ${ErrorCodes[obj.ccd].description}`;
+        }).join(', '),
+      };
+
+      this.log(`code: ${tokens.code}`);
+      this.log(`description: ${tokens.description}`);
+      this.homey.flow.getDeviceTriggerCard('alarm_status_error').trigger(this, tokens)
+        .then(this.log)
         .catch(this.error);
     } else {
       this.log('Alarm status has changed to OK. Trigger OK card.');
-      this.homey.flow.getTriggerCard('alarm_status_ok').trigger().then(this.log).catch(this.error);
+      this.homey.flow.getDeviceTriggerCard('alarm_status_ok').trigger(this)
+        .then(this.log)
+        .catch(this.error);
     }
   }
 
@@ -151,8 +148,8 @@ class HeatPumpDevice extends Device {
    * onDeleted is called when the user deleted the device.
    */
   async onDeleted() {
-    const { interval, device } = this;
-    this.log(`${device.id} deleted`);
+    const { interval } = this;
+    this.log(`${this.data.id} deleted`);
     if (this.client) {
       this.client.end();
     }
