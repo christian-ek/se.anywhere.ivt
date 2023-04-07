@@ -33,7 +33,6 @@ class HeatPumpDriver extends Homey.Driver {
   }
 
   async validateDevice(data) {
-    this.log('validating new device', data);
     // Check and see if we can connect to the backend with the supplied credentials.
     let client;
     try {

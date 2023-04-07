@@ -1,0 +1,11 @@
+{
+    "settings": {
+      "title": "IVT Värmepump information",
+      "subtitle": "Denna informationen hittar du på ett klistermärke i värmepumpen.",
+      "serial": "Serienummer",
+      "key": "Accessnyckel",
+      "password": "Lösenord",
+      "interval": "Pollningsintervall, sekunder",
+      "connect": "Anslut"
+    }
+  }

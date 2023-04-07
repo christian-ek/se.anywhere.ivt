@@ -4,40 +4,46 @@
 <head>
   <meta charset="UTF-8" />
   <script src="../../../assets/vue.min.js"></script>
-  <link rel="stylesheet" href="../../../assets/bootstrap.min.css" />
 </head>
 
 <body>
   <div id="pair">
-    <div class="row align-items-center alert alert-light" role="alert" id="status"
-      style="width: 100%; margin-left: 0px; margin-right: 0px;">
-      <div class="input-group mb-3">
-        <input v-model="data.serial" type="text" class="form-control hy-nostyle" placeholder="Serial number" />
+    <header class="homey-header" style="margin-bottom: 0">
+      <h1 class="homey-title" data-i18n="settings.title">
+        <!-- This will be filled with the translated string with key 'settings.title'. -->
+      </h1>
+      <p class="homey-subtitle" data-i18n="settings.subtitle">
+        <!-- This will be filled with the translated string with key 'settings.subtitle'. -->
+      </p>
+    </header>
+  
+    <fieldset class="homey-form-fieldset" style="margin-top: 0">
+      <div class="homey-form-group">
+        <label class="homey-form-label" for="serial" data-i18n="settings.serial"></label>
+        <input class="homey-form-input" v-model="data.serial" id="username" type="text" value=""/>
       </div>
-      <div class="input-group mb-3">
-        <input v-model="data.key" type="text" class="form-control hy-nostyle" placeholder="Access key" />
+      <div class="homey-form-group">
+        <label class="homey-form-label" for="username" data-i18n="settings.key"></label>
+        <input class="homey-form-input" v-model="data.key" id="username" type="text" value=""/>
       </div>
-      <div class="input-group mb-3">
-        <input v-model="data.password" type="password" class="form-control hy-nostyle" placeholder="Password" />
+      <div class="homey-form-group">
+        <label class="homey-form-label" for="password" data-i18n="settings.password"></label>
+        <input class="homey-form-input" v-model="data.password" id="password" type="password" value=""/>
       </div>
-      <div class="input-group mb-3">
-        <small class="form-text text-muted">Polling period, seconds</small>
+      <div class="homey-form-group">
+        <label class="homey-form-label" for="password" data-i18n="settings.interval"></label>
+        <input class="homey-form-input" v-model="data.interval" id="password" type="number" placeholder="30" min="10" max="3600" value=""/>
       </div>
-      <div class="input-group mb-3">
-        <input v-model="data.interval" type="number" class="form-control hy-nostyle" placeholder="30" min="10" max="3600" />
+      <div>
+        <div class="flex-container">
+          <div class="item-left">{{error}}</div>
+          <div class="item-right"><button v-on="enableButton ? { click: () => connect() } : {click: ($event) => $event.preventDefault() }" data-i18n="settings.connect" :class="{ 'is-loading': loading, 'is-disabled': !enableButton }" class="homey-button-primary">Connect</button></div>
+        </div>
       </div>
-      <div class="col">
-        <div class="float-start">{{error}}</div>
-      </div>
-      <div class="col">
-        <button @click="connect" type="button" class="btn btn-outline-dark float-end hy-nostyle" style="height: auto;">Connect</button>
-      </div>
-    </div>
+    </fieldset>
   </div>
 
   <script>
-    Homey.setTitle("Add IVT Heat pump information");
-
     new Vue({
       el: "#pair",
       data: function () {
@@ -48,23 +54,24 @@
             password: '',
             interval: 30
           },
+          loading: false,
           error: ''
+        }
+      },
+      computed: {
+        enableButton(){
+            return Object.values(this.data).every(v=>!!v)
         }
       },
       methods: {
         connect() {
-          let alert = document.getElementById(`status`);
-          alert.classList.remove("alert-danger");
-          alert.classList.add("alert-light");
-
-          Homey.showLoadingOverlay();
-
+          this.loading = true;
 
           Homey.emit("validate_device", this.data, (error, device) => {
-            Homey.hideLoadingOverlay();
+            this.loading = false;
+            console.log(error)
             if (error || ! device) {
-              alert.classList.remove("alert-light");
-              alert.classList.add("alert-danger");
+              console.log(error)
               this.error = "Error: " + error.message;
               return
             }
@@ -82,6 +89,22 @@
       }
     });
   </script>
+  <style>
+    .flex-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .item-left {
+      flex-grow: 1;
+      color: red;
+    }
+
+    .item-right {
+      margin-left: 10px;
+    }
+  </style>
 </body>
 
 </html>
