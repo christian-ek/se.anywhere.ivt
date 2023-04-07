@@ -64,7 +64,7 @@ class HeatPumpDevice extends Device {
 
   async triggerAlarmStatusChange(value) {
     if (value) {
-      this.log('Alarm status has changed to error. Trigger True card..');
+      this.log('Alarm status has changed to error. Trigger ERROR card..');
       await this.client.get('/notifications')
         .then((res) => {
           const tokens = {
@@ -79,15 +79,12 @@ class HeatPumpDevice extends Device {
         .then(async (tokens) => {
           this.log(`code: ${tokens.code}`);
           this.log(`description: ${tokens.description}`);
-          const card = await this.homey.flow.getTriggerCard('alarm_status_true');
-          card.trigger(tokens).catch(this.error);
+          this.homey.flow.getTriggerCard('alarm_status_error').trigger(tokens).then(this.log).catch(this.error);
         })
         .catch(this.error);
     } else {
-      this.log('Alarm status has changed to OK. Trigger False card.');
-
-      const card = await this.homey.flow.getTriggerCard('alarm_status_false');
-      card.trigger().catch(this.error);
+      this.log('Alarm status has changed to OK. Trigger OK card.');
+      this.homey.flow.getTriggerCard('alarm_status_ok').trigger().then(this.log).catch(this.error);
     }
   }
 
@@ -154,16 +151,11 @@ class HeatPumpDevice extends Device {
    * onDeleted is called when the user deleted the device.
    */
   async onDeleted() {
-    const {
-      interval,
-      device,
-    } = this;
-    this.log(`${device.name} deleted`);
+    const { interval, device } = this;
+    this.log(`${device.id} deleted`);
     if (this.client) {
       this.client.end();
     }
-    await this.homey.flow.unregisterToken(this.errorCodeToken);
-    await this.homey.flow.unregisterToken(this.errorTextToken);
 
     clearInterval(interval);
   }
