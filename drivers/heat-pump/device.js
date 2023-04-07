@@ -62,19 +62,25 @@ class HeatPumpDevice extends Device {
 
   async triggerAlarmStatusChange(value) {
     if (value) {
-      this.log('Alarm status has changed to error. Trigger ERROR card..');
-      const res = await this.client.get('/notifications');
+      await this.client.get('/notifications')
+        .then((res) => {
+          const tokens = {
+            code: res.values.map((obj) => obj.ccd).join(', '),
+            description: res.values.map((obj) => {
+              return `${obj.ccd}: ${ErrorCodes[obj.ccd].description}`;
+            }).join(', '),
+          };
+          return tokens;
+        })
+        .then((tokens) => {
+          this.log('Alarm status has changed to error. Trigger ERROR card..');
+          this.log(`code: ${tokens.code}`);
+          this.log(`description: ${tokens.description}`);
 
-      const tokens = {
-        code: res.values.map((obj) => obj.ccd).join(', '),
-        description: res.values.map((obj) => {
-          return `${obj.ccd}: ${ErrorCodes[obj.ccd].description}`;
-        }).join(', '),
-      };
-
-      this.log(`code: ${tokens.code}`);
-      this.log(`description: ${tokens.description}`);
-      this.homey.flow.getDeviceTriggerCard('alarm_status_error').trigger(this, tokens)
+          this.homey.flow.getDeviceTriggerCard('alarm_status_error')
+            .trigger(this, tokens)
+            .catch(this.error);
+        })
         .catch(this.error);
     } else {
       this.log('Alarm status has changed to OK. Trigger OK card.');
