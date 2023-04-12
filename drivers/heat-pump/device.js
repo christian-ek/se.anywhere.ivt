@@ -82,7 +82,7 @@ class HeatPumpDevice extends Device {
             .catch(this.error);
         })
         .catch(this.error);
-    } else {
+    } else if (this.getCapabilityValue('alarm_status') === 'error') {
       this.log('Alarm status has changed to OK. Trigger OK card.');
       this.homey.flow.getDeviceTriggerCard('alarm_status_ok').trigger(this)
         .catch(this.error);
