@@ -4,5 +4,8 @@
   },
   "1.0.2": {
     "en": "New readme file"
+  },
+  "1.0.3": {
+    "en": "Fix faulty OK card triggers"
   }
 }
