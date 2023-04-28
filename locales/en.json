@@ -2,9 +2,9 @@
     "settings": {
       "title": "IVT Heat pump information",
       "subtitle": "This information can be found on a sticker inside your heat pump.",
-      "serial": "Serial number",
-      "key": "Access key",
-      "password": "Password",
+      "serial": "Serial number (on some devices called 'login name')",
+      "key": "Access key (on some devices called 'password', remove the hyphens '-')",
+      "password": "Password (the user-configured password)",
       "interval": "Polling period, seconds",
       "connect": "Connect"
     }
