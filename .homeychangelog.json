@@ -10,5 +10,8 @@
   },
   "1.0.4": {
     "en": "Add support mail link to app store"
+  },
+  "1.0.5": {
+    "en": "Update settings text to make things clearer"
   }
 }
