@@ -111,7 +111,10 @@
         "measure_temperature.return",
         "measure_temperature.outdoor",
         "measure_temperature.water",
-        "alarm_status"
+        "alarm_status",
+        "meter_power.last_hour_eheater",
+        "meter_power.last_hour_total",
+        "meter_power.last_hour_compressor"
       ],
       "capabilitiesOptions": {
         "measure_temperature.supply": {
@@ -136,6 +139,24 @@
           "title": {
             "en": "Water temperature",
             "sv": "Vattentemperatur"
+          }
+        },
+        "meter_power.last_hour_eheater": {
+          "title": {
+            "en": "Last hour (eheater)",
+            "sv": "Senaste timmen (elpatron)"
+          }
+        },
+        "meter_power.last_hour_total": {
+          "title": {
+            "en": "Last hour (total)",
+            "sv": "Senaste timmen (totalt)"
+          }
+        },
+        "meter_power.last_hour_compressor": {
+          "title": {
+            "en": "Last hour (compressor)",
+            "sv": "Senaste timmen (kompressor)"
           }
         }
       },

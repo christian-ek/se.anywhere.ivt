@@ -28,12 +28,37 @@ class HeatPumpDevice extends Device {
   }
 
   async getDeviceData() {
+    const energyMonitoringCapabilities = [
+      'LAST_HOUR_POWER_TOTAL',
+      'LAST_HOUR_POWER_EHEATER',
+      'LAST_HOUR_POWER_COMPRESSOR',
+    ];
+
     this.log(`[${this.getName()}][${this.data.id}]`, 'Refreshing device data');
 
-    for (const value of Object.values(Capabilities)) {
+    for (const [key, value] of Object.entries(Capabilities)) {
       try {
-        const res = await this.client.get(value.endpoint);
-        this.updateValue(value.name, res.value);
+        let result;
+        // Add the date to energy monitoring capabilites endpoints
+        const endpoint = energyMonitoringCapabilities.includes(key)
+          ? value.endpoint + new Date().toISOString().split('T')[0]
+          : value.endpoint;
+
+        // Get data from heat pump
+        const res = await this.client.get(endpoint);
+
+        if (energyMonitoringCapabilities.includes(key)) {
+          const currentHour = new Date().getHours();
+
+          // subtract 2 to account for array being zero based and to get last hours measurement
+          const currentHourObject = res.recording[currentHour - 2];
+
+          result = currentHourObject.y / currentHourObject.c;
+        } else {
+          result = res.value;
+        }
+
+        this.updateValue(value.name, result);
       } catch (err) {
         this.log(err);
       }
