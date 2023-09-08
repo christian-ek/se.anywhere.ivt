@@ -27,11 +27,27 @@
     "name": "Christian Ek",
     "email": "christian.ek@live.se"
   },
+  "contributing": {
+    "donate": {
+      "paypal": {
+        "username": "christianoak"
+      }
+    }
+  },
   "support": "mailto:christian.ek@live.se",
   "brandColor": "#ef645e",
   "tags": {
+    "en": [
+      "IVT",
+      "Anywhere",
+      "Heatpump",
+      "Heating"
+    ],
     "sv": [
-      ""
+      "IVT",
+      "Anywhere",
+      "Värmepump",
+      "Uppvärmning"
     ]
   },
   "flow": {
