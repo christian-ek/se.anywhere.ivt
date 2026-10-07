@@ -25,5 +25,8 @@
   },
   "1.1.0": {
     "en": "Add temperature and hot water controls, Homey Energy Dashboard support and new sensor capabilities"
+  },
+  "1.2.0": {
+    "en": "More reliable connection to the heat pump, energy values in local time, new COP sensor, hot water temperature and mode flow cards"
   }
 }

@@ -32,7 +32,7 @@
       </div>
       <div class="homey-form-group">
         <label class="homey-form-label" for="password" data-i18n="settings.interval"></label>
-        <input class="homey-form-input" v-model="data.interval" id="password" type="number" placeholder="30" min="10" max="3600" value=""/>
+        <input class="homey-form-input" v-model="data.interval" id="password" type="number" placeholder="60" min="10" max="3600" value=""/>
       </div>
       <div>
         <div class="flex-container">
@@ -52,7 +52,7 @@
             serial: '',
             key: '',
             password: '',
-            interval: 30
+            interval: 60
           },
           loading: false,
           error: ''

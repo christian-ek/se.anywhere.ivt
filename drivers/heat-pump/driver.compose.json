@@ -18,7 +18,8 @@
     "compressor_active",
     "pump_modulation",
     "measure_temperature.water_setpoint",
-    "meter_power"
+    "meter_power",
+    "cop"
   ],
   "energy": {
     "meterPowerImportedCapability": "meter_power"

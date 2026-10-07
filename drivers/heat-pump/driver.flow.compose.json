@@ -1,0 +1,124 @@
+{
+  "conditions": [
+    {
+      "id": "hotwater_mode_is",
+      "title": {
+        "en": "Hot water mode !{{is|is not}}",
+        "sv": "Varmvattenläge !{{är|är inte}}"
+      },
+      "titleFormatted": {
+        "en": "Hot water mode !{{is|is not}} [[mode]]",
+        "sv": "Varmvattenläge !{{är|är inte}} [[mode]]"
+      },
+      "args": [
+        {
+          "name": "mode",
+          "type": "dropdown",
+          "title": {
+            "en": "Mode",
+            "sv": "Läge"
+          },
+          "values": [
+            { "id": "eco", "label": { "en": "Eco", "sv": "Eco" } },
+            { "id": "low", "label": { "en": "Low", "sv": "Låg" } },
+            { "id": "high", "label": { "en": "High", "sv": "Hög" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "compressor_is_running",
+      "title": {
+        "en": "Compressor !{{is|is not}} running",
+        "sv": "Kompressorn !{{är|är inte}} igång"
+      }
+    }
+  ],
+  "actions": [
+    {
+      "id": "set_hotwater_mode",
+      "title": {
+        "en": "Set hot water mode",
+        "sv": "Ställ in varmvattenläge"
+      },
+      "titleFormatted": {
+        "en": "Set hot water mode to [[mode]]",
+        "sv": "Ställ in varmvattenläge till [[mode]]"
+      },
+      "hint": {
+        "en": "Switch the heat pump between the Eco, Low and High hot water modes.",
+        "sv": "Växla värmepumpen mellan varmvattenlägena Eco, Låg och Hög."
+      },
+      "args": [
+        {
+          "name": "mode",
+          "type": "dropdown",
+          "title": {
+            "en": "Mode",
+            "sv": "Läge"
+          },
+          "values": [
+            { "id": "eco", "label": { "en": "Eco", "sv": "Eco" } },
+            { "id": "low", "label": { "en": "Low", "sv": "Låg" } },
+            { "id": "high", "label": { "en": "High", "sv": "Hög" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "extra_hot_water",
+      "title": {
+        "en": "Start extra hot water",
+        "sv": "Starta extra varmvatten"
+      },
+      "hint": {
+        "en": "Request a one-off extra hot water charge from the heat pump.",
+        "sv": "Begär en extra varmvattenladdning från värmepumpen."
+      }
+    },
+    {
+      "id": "set_hotwater_temperature",
+      "title": {
+        "en": "Set hot water temperature",
+        "sv": "Ställ in varmvattentemperatur"
+      },
+      "titleFormatted": {
+        "en": "Set hot water temperature for [[level]] mode to [[temperature]] °C",
+        "sv": "Ställ in varmvattentemperatur för läge [[level]] till [[temperature]] °C"
+      },
+      "hint": {
+        "en": "Changes the target temperature of the Low or High hot water mode (40–52 °C). The Eco temperature cannot be changed remotely.",
+        "sv": "Ändrar måltemperaturen för varmvattenläget Låg eller Hög (40–52 °C). Eco-temperaturen kan inte ändras på distans."
+      },
+      "args": [
+        {
+          "name": "level",
+          "type": "dropdown",
+          "title": {
+            "en": "Mode",
+            "sv": "Läge"
+          },
+          "values": [
+            { "id": "low", "label": { "en": "Low", "sv": "Låg" } },
+            { "id": "high", "label": { "en": "High", "sv": "Hög" } }
+          ]
+        },
+        {
+          "name": "temperature",
+          "type": "number",
+          "title": {
+            "en": "Temperature",
+            "sv": "Temperatur"
+          },
+          "placeholder": {
+            "en": "e.g. 45",
+            "sv": "t.ex. 45"
+          },
+          "min": 40,
+          "max": 52,
+          "step": 1
+        }
+      ]
+    }
+  ]
+}

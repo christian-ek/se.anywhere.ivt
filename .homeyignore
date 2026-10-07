@@ -17,3 +17,6 @@ documentation/
 tools/
 app.ts
 .github/
+*.env
+secrets.*
+test-*

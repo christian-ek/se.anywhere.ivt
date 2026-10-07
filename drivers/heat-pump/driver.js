@@ -5,6 +5,23 @@ const Device = require('./device');
 
 class HeatPumpDriver extends Homey.Driver {
 
+  async onInit() {
+    this.homey.flow.getConditionCard('hotwater_mode_is')
+      .registerRunListener(({ device, mode }) => device.getCapabilityValue('ivt_hotwater_mode') === mode);
+
+    this.homey.flow.getConditionCard('compressor_is_running')
+      .registerRunListener(({ device }) => device.getCapabilityValue('compressor_active') === true);
+
+    this.homey.flow.getActionCard('set_hotwater_mode')
+      .registerRunListener(({ device, mode }) => device.triggerCapabilityListener('ivt_hotwater_mode', mode));
+
+    this.homey.flow.getActionCard('extra_hot_water')
+      .registerRunListener(({ device }) => device.triggerCapabilityListener('hotwater_boost', true));
+
+    this.homey.flow.getActionCard('set_hotwater_temperature')
+      .registerRunListener(({ device, level, temperature }) => device.setHotWaterTemperature(level, temperature));
+  }
+
   // Pairing
   onPair(session) {
     this.log('Pairing started');

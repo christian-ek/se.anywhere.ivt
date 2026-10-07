@@ -1,219 +1,285 @@
 'use strict';
 
 const { Device } = require('homey');
-const { IVTClient } = require('../../lib/bosch-xmpp');
+const { createGatewayClient } = require('../../lib/gateway-client');
 const Capabilities = require('../../lib/capabilities');
 const ErrorCodes = require('../../lib/errorcodes');
+
+const HOTWATER_LEVEL_LIMITS = {
+  low: { min: 40, max: 52 },
+  high: { min: 40, max: 52 },
+};
+
+const ENERGY_ENDPOINT = '/recordings/heatSources/total/energyMonitoring';
+const LAST_HOUR_SOURCES = {
+  'meter_power.last_hour_total': 'consumedEnergy',
+  'meter_power.last_hour_eheater': 'eheater',
+  'meter_power.last_hour_compressor': 'compressor',
+};
+// The gateway fills in an hour's recording slot shortly after the hour ends.
+const ENERGY_SETTLE_MINUTES = 5;
+
+// A recording slot holds the sum (y) and count (c) of samples for one hour.
+const slotKwh = (slot) => (slot && slot.c > 0 ? slot.y / slot.c : null);
+const sumKwh = (slots) => slots.reduce((sum, slot) => sum + (slotKwh(slot) ?? 0), 0);
+const round2 = (value) => Math.round(value * 100) / 100;
 
 class HeatPumpDevice extends Device {
 
   async onInit() {
     this.data = this.getData();
-    this.isWriting = false;
+    this.client = null;
+    this.pendingWrites = 0;
+    this.polling = false;
+    this.reconnecting = false;
+    this.energyHourKey = null;
 
     // Add capabilities introduced after initial pairing
-    for (const cap of ['compressor_active', 'pump_modulation', 'measure_temperature.water_setpoint', 'meter_power']) {
+    for (const cap of ['compressor_active', 'pump_modulation', 'measure_temperature.water_setpoint', 'meter_power', 'cop']) {
       if (!this.hasCapability(cap)) {
         await this.addCapability(cap).catch(this.error);
       }
     }
 
-    // Initialize the client using user settings
-    try {
-      this.client = await this.getClient(this.getSettings());
-    } catch (e) {
-      this.error(`Unable to initialize device: ${e.message}`);
-      this.setUnavailable(e.message).catch(this.error);
-    }
-
-    // Register Capability Listeners
     this.registerCapabilityListener('target_temperature', this.onCapabilityTargetTemperature.bind(this));
     this.registerCapabilityListener('ivt_hotwater_mode', this.onCapabilityHotWaterMode.bind(this));
     this.registerCapabilityListener('hotwater_boost', this.onCapabilityHotWaterBoost.bind(this));
 
-    // Setup Polling
-    const updateInterval = Number(this.getSetting('interval')) * 1000;
-    this.log(`[${this.getName()}] Update Interval: ${updateInterval}ms`);
+    await this.connect();
 
     // Initial Data Fetch (Delayed 2s to ensure SSL stability)
-    setTimeout(() => {
-        this.getDeviceData().catch(err => this.error('Startup fetch failed:', err));
-    }, 2000);
-
-    this.interval = setInterval(async () => {
-      if (!this.isWriting) {
-        await this.getDeviceData();
-      }
-    }, updateInterval);
+    this.homey.setTimeout(() => this.poll(), 2000);
+    this.startPolling(this.getSetting('interval'));
 
     this.log('IVT heat pump device has been initialized');
   }
 
+  get isWriting() {
+    return this.pendingWrites > 0;
+  }
+
+  startPolling(intervalSeconds) {
+    const updateInterval = Number(intervalSeconds) * 1000;
+    this.log(`[${this.getName()}] Update Interval: ${updateInterval}ms`);
+    this.homey.clearInterval(this.interval);
+    this.interval = this.homey.setInterval(() => this.poll(), updateInterval);
+  }
+
+  async connect() {
+    try {
+      this.client = await this.getClient(this.getSettings());
+      await this.setAvailable();
+      return true;
+    } catch (err) {
+      this.client = null;
+      this.error(`Unable to connect to heat pump: ${err.message}`);
+      await this.setUnavailable(err.message).catch(this.error);
+      return false;
+    }
+  }
+
+  // A full poll can outlast the interval when the gateway is slow, so skip
+  // ticks instead of letting requests pile up in the client's serial queue.
+  async poll() {
+    if (this.polling || this.isWriting || this.reconnecting) return;
+    this.polling = true;
+    try {
+      if (!this.client && !(await this.connect())) return;
+      await this.getDeviceData();
+    } catch (err) {
+      this.error('Poll failed:', err);
+    } finally {
+      this.polling = false;
+    }
+  }
+
+  // Homey apps run in UTC, but the gateway records energy per local hour and date.
+  localTime(date) {
+    const parts = {};
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: this.homey.clock.getTimezone(),
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date).forEach(({ type, value }) => {
+      parts[type] = value;
+    });
+    return {
+      date: `${parts.year}-${parts.month}-${parts.day}`,
+      hour: Number(parts.hour),
+      minute: Number(parts.minute),
+    };
+  }
+
   // --- CONTROL HANDLERS ---
 
-  async onCapabilityTargetTemperature(value) {
-    this.isWriting = true;
-    const endpoint = '/heatingCircuits/hc1/temperatureRoomSetpoint';
-    const payload = { value: parseFloat(value) };
+  async write(endpoint, value) {
+    if (!this.client) throw new Error('Not connected to the heat pump');
+    this.pendingWrites++;
     try {
-      if (this.client && typeof this.client.put === 'function') {
-        await this.client.put(endpoint, payload);
-        return Promise.resolve();
-      } else { throw new Error('Client not ready'); }
+      await this.client.put(endpoint, { value });
     } catch (err) {
-      this.error('Failed to set target temperature:', err);
-      return Promise.reject(err);
-    } finally { this.isWriting = false; }
+      const status = err.response?.statusCode;
+      this.error(`Write to ${endpoint} failed:`, status ? `HTTP ${status} ${err.response.statusMessage}` : err.message);
+      if (status === '403') throw new Error('The heat pump does not allow this setting to be changed remotely');
+      throw err;
+    } finally {
+      this.pendingWrites--;
+    }
+  }
+
+  async onCapabilityTargetTemperature(value) {
+    await this.write('/heatingCircuits/hc1/temperatureRoomSetpoint', parseFloat(value));
   }
 
   async onCapabilityHotWaterMode(value) {
-    this.isWriting = true;
-    const endpoint = '/dhwCircuits/dhw1/operationMode';
-    const payload = { value: value };
-    try {
-      if (this.client && typeof this.client.put === 'function') {
-        await this.client.put(endpoint, payload);
-        return Promise.resolve();
-      } else { throw new Error('Client not ready'); }
-    } catch (err) {
-      this.error('Failed to set Hot Water Mode:', err);
-      return Promise.reject(err);
-    } finally { this.isWriting = false; }
+    await this.write('/dhwCircuits/dhw1/operationMode', value);
   }
 
   async onCapabilityHotWaterBoost(value) {
     if (!value) return;
-    this.isWriting = true;
-    const endpoint = '/dhwCircuits/dhw1/charge';
-    const payload = { value: 'start' };
-    try {
-      if (this.client && typeof this.client.put === 'function') {
-        await this.client.put(endpoint, payload);
-        setTimeout(() => {
-          this.setCapabilityValue('hotwater_boost', false).catch(this.error);
-        }, 2000);
-        return Promise.resolve();
-      } else { throw new Error('Client not ready'); }
-    } catch (err) {
-      this.error('Failed to trigger Hot Water Boost:', err);
-      return Promise.reject(err);
-    } finally { this.isWriting = false; }
+    await this.write('/dhwCircuits/dhw1/charge', 'start');
+    this.homey.setTimeout(() => {
+      this.setCapabilityValue('hotwater_boost', false).catch(this.error);
+    }, 2000);
   }
 
+  async setHotWaterTemperature(level, temperature) {
+    const limits = HOTWATER_LEVEL_LIMITS[level];
+    if (!limits) throw new Error(`Unknown hot water mode: ${level}`);
+    if (temperature < limits.min || temperature > limits.max) {
+      throw new Error(`The ${level} hot water mode accepts ${limits.min}–${limits.max} °C`);
+    }
+    await this.write(`/dhwCircuits/dhw1/temperatureLevels/${level}`, temperature);
+  }
 
   // --- DATA FETCHING ---
 
   async getDeviceData() {
-    for (const [key, value] of Object.entries(Capabilities)) {
-      if (this.isWriting) break;
+    for (const { name, endpoint } of Object.values(Capabilities)) {
+      if (this.isWriting) return;
       try {
-        let result;
-        const endpoint = value.name.includes('meter_power')
-          ? value.endpoint + new Date().toISOString().split('T')[0]
-          : value.endpoint;
-
         const res = await this.client.get(endpoint);
-
-        if (value.name.includes('meter_power')) {
-          const currentHour = new Date().getHours();  
-          const idx = Math.max(0, currentHour - 2);  
-          const currentHourObject = res.recording?.[idx];  
-          if (!currentHourObject || !currentHourObject.c) { continue; }  
-          result = currentHourObject.y / currentHourObject.c;  
-
-        } else {
-          result = res.value;
-          // Ensure Number type for temperatures to support Thermostat Dial
-          if (typeof result === 'string' && !isNaN(result)) {
-             result = parseFloat(result);
-          }
+        let result = res.value;
+        // Ensure Number type for temperatures to support Thermostat Dial
+        if (typeof result === 'string' && result !== '' && !Number.isNaN(Number(result))) {
+          result = parseFloat(result);
         }
-        this.updateValue(value.name, result);
-      } catch (err) { this.log(`Failed to fetch ${value.name}:`, err.message); }
+        await this.updateValue(name, result);
+      } catch (err) {
+        this.log(`Failed to fetch ${name}:`, err.message);
+      }
     }
 
-    if (!this.isWriting) {
+    if (this.isWriting) return;
+    try {
+      const res = await this.client.get('/dhwCircuits/dhw1/operationMode');
+      if (typeof res?.value === 'string') {
+        await this.updateValue('ivt_hotwater_mode', res.value.toLowerCase());
+      }
+    } catch (err) {
+      this.log('Failed to fetch ivt_hotwater_mode:', err.message);
+    }
+
+    if (this.isWriting) return;
+    try {
+      const res = await this.client.get('/heatingCircuits/hc1/temperatureRoomSetpoint');
+      if (res?.value) {
+        await this.updateValue('target_temperature', parseFloat(res.value));
+      }
+    } catch (err) {
+      this.log('Failed to fetch target_temperature:', err.message);
+    }
+
+    if (this.isWriting) return;
+    try {
+      const res = await this.client.get('/heatSources/flameStatus');
+      if (res?.value !== undefined) {
+        await this.updateValue('compressor_active', res.value === 'on');
+      }
+    } catch (err) {
+      this.log('Failed to fetch compressor_active:', err.message);
+    }
+
+    if (this.isWriting) return;
+    await this.updateEnergyIfDue();
+  }
+
+  // Recordings only change once an hour, so read them once per hour.
+  async updateEnergyIfDue() {
+    const now = this.localTime(new Date());
+    const hourKey = `${now.date} ${now.hour}`;
+    if (hourKey === this.energyHourKey) return;
+    if (this.energyHourKey && now.minute < ENERGY_SETTLE_MINUTES) return;
+    if (await this.updateEnergy(now)) this.energyHourKey = hourKey;
+  }
+
+  async updateEnergy(now) {
+    const recordings = new Map();
+    const readRecording = async (source, date) => {
+      const key = `${source}?interval=${date}`;
+      if (!recordings.has(key)) {
+        const res = await this.client.get(`${ENERGY_ENDPOINT}/${key}`);
+        recordings.set(key, res?.recording || []);
+      }
+      return recordings.get(key);
+    };
+
+    const lastHour = this.localTime(new Date(Date.now() - 60 * 60 * 1000));
+    for (const [capability, source] of Object.entries(LAST_HOUR_SOURCES)) {
       try {
-        const res = await this.client.get('/dhwCircuits/dhw1/operationMode');
-        if (res && res.value) {
-          let mode = res.value;
-          if (typeof mode === 'string') mode = mode.toLowerCase();
-          this.updateValue('ivt_hotwater_mode', mode);
-        }
-      } catch (err) { this.log('Failed to fetch ivt_hotwater_mode:', err.message); }
+        const kwh = slotKwh((await readRecording(source, lastHour.date))[lastHour.hour]);
+        if (kwh !== null) await this.updateValue(capability, round2(kwh));
+      } catch (err) {
+        this.log(`Failed to fetch ${capability}:`, err.message);
+      }
     }
 
-    if (!this.isWriting) {
-      try {
-        const res = await this.client.get('/heatingCircuits/hc1/temperatureRoomSetpoint');
-        if (res && res.value) {
-          this.updateValue('target_temperature', parseFloat(res.value));
-        }
-      } catch (err) { this.log('Failed to fetch target_temperature:', err.message); }
-    }
+    try {
+      const consumedToday = sumKwh((await readRecording('consumedEnergy', now.date)).slice(0, now.hour));
+      await this.updateCumulativeEnergy(now.date, consumedToday, readRecording);
 
-    if (!this.isWriting) {
-      try {
-        const res = await this.client.get('/heatSources/flameStatus');
-        if (res && res.value !== undefined) {
-          this.updateValue('compressor_active', res.value === 'on');
-        }
-      } catch (err) { this.log('Failed to fetch compressor_active:', err.message); }
-    }
-
-    if (!this.isWriting) {
-      await this.updateCumulativeEnergy();
+      const producedToday = sumKwh((await readRecording('outputProduced', now.date)).slice(0, now.hour));
+      if (consumedToday > 0) {
+        await this.updateValue('cop', round2(producedToday / consumedToday));
+      }
+      return true;
+    } catch (err) {
+      this.log('Failed to update energy totals:', err.message);
+      return false;
     }
   }
 
-  async updateCumulativeEnergy() {
-    const today = new Date().toISOString().split('T')[0];
+  // meter_power must only grow, so completed days are folded into a stored base.
+  async updateCumulativeEnergy(today, consumedToday, readRecording) {
     const lastDate = this.getStoreValue('energy_last_date');
-
-    // Day rollover: add the previous day's complete total to the running base
     if (lastDate && lastDate !== today) {
-      try {
-        const res = await this.client.get(
-          `/recordings/heatSources/total/energyMonitoring/consumedEnergy?interval=${lastDate}`
-        );
-        const dayTotal = (res.recording || []).reduce((sum, slot) => {
-          return sum + (slot.c > 0 ? slot.y / slot.c : 0);
-        }, 0);
-        const newBase = (this.getStoreValue('energy_base_kwh') || 0) + dayTotal;
-        await this.setStoreValue('energy_base_kwh', newBase);
-        this.log(`Energy rollover: added ${dayTotal.toFixed(3)} kWh for ${lastDate}, base now ${newBase.toFixed(3)} kWh`);
-      } catch (err) { this.log('Failed to roll over energy base:', err.message); }
+      const dayTotal = sumKwh(await readRecording('consumedEnergy', lastDate));
+      const newBase = (this.getStoreValue('energy_base_kwh') || 0) + dayTotal;
+      await this.setStoreValue('energy_base_kwh', newBase);
+      this.log(`Energy rollover: added ${dayTotal.toFixed(3)} kWh for ${lastDate}, base now ${newBase.toFixed(3)} kWh`);
     }
-    await this.setStoreValue('energy_last_date', today);
+    if (lastDate !== today) await this.setStoreValue('energy_last_date', today);
 
-    // Sum completed hours of today and add to base
-    try {
-      const res = await this.client.get(
-        `/recordings/heatSources/total/energyMonitoring/consumedEnergy?interval=${today}`
-      );
-      const currentHour = new Date().getHours();
-      const completedHours = Math.max(0, currentHour - 1); // hours fully done
-      const todayPartial = (res.recording || [])
-        .slice(0, completedHours)
-        .reduce((sum, slot) => sum + (slot.c > 0 ? slot.y / slot.c : 0), 0);
-
-      const base = this.getStoreValue('energy_base_kwh') || 0;
-      this.updateValue('meter_power', Math.round((base + todayPartial) * 100) / 100);
-    } catch (err) { this.log('Failed to update meter_power:', err.message); }
+    const base = this.getStoreValue('energy_base_kwh') || 0;
+    await this.updateValue('meter_power', round2(base + consumedToday));
   }
 
   async updateValue(capability, value) {
-    if (capability.trim() === 'alarm_status') {
+    if (capability === 'alarm_status') {
       const isAlarm = (String(value).toLowerCase() !== 'ok');
       if (this.getCapabilityValue(capability) !== isAlarm) {
         this.triggerAlarmStatusChange(isAlarm);
-        this.setCapabilityValue(capability, isAlarm).catch(this.error);
+        await this.setCapabilityValue(capability, isAlarm).catch(this.error);
       }
-      return; 
+      return;
     }
 
     if (this.getCapabilityValue(capability) !== value) {
-        await this.setCapabilityValue(capability, value).catch(this.error);
+      await this.setCapabilityValue(capability, value).catch(this.error);
     }
   }
 
@@ -221,85 +287,63 @@ class HeatPumpDevice extends Device {
     if (value) {
       try {
         const res = await this.client.get('/notifications');
+        const values = Array.isArray(res?.values) ? res.values : [];
         const tokens = {
-          code: res.values.map((obj) => obj.ccd).join(', '),
-          description: res.values
+          code: values.map((obj) => obj.ccd).join(', '),
+          description: values
             .map((obj) => `${obj.ccd}: ${ErrorCodes[obj.ccd]?.description ?? 'Unknown error'}`)
             .join(', '),
         };
         await this.homey.flow.getDeviceTriggerCard('alarm_status_error').trigger(this, tokens);
-      } catch (error) { this.error(error); }
-    } else if (this.getCapabilityValue('alarm_status') === true) {  
-      this.homey.flow.getDeviceTriggerCard('alarm_status_ok').trigger(this).catch(this.error);  
+      } catch (error) {
+        this.error(error);
+      }
+    } else if (this.getCapabilityValue('alarm_status') === true) {
+      this.homey.flow.getDeviceTriggerCard('alarm_status_ok').trigger(this).catch(this.error);
     }
   }
 
-  async onAdded() { this.log('Device added'); }
+  async onAdded() {
+    this.log('Device added');
+  }
 
-  async onSettings({ oldSettings, newSettings, changedKeys }) {
-    if (oldSettings.interval !== newSettings.interval) {
-      clearInterval(this.interval);
-      this.interval = setInterval(async () => {
-        if (!this.isWriting) {
-          await this.getDeviceData();
-        }
-      }, newSettings.interval * 1000);
+  async onSettings({ newSettings, changedKeys }) {
+    if (['serial', 'key', 'password'].some((key) => changedKeys.includes(key))) {
+      // The gateway allows one session per serial, so close the old one first.
+      // On failure the settings are rejected and polling reconnects with the old ones.
+      this.reconnecting = true;
+      try {
+        if (this.client) this.client.end();
+        this.client = null;
+        this.client = await this.getClient(newSettings);
+        await this.setAvailable();
+      } catch (err) {
+        throw new Error(`Could not connect with the new settings: ${err.message}`);
+      } finally {
+        this.reconnecting = false;
+      }
     }
 
-    // Reconnect if credentials changed
-    if (oldSettings.serial !== newSettings.serial || oldSettings.key !== newSettings.key || oldSettings.password !== newSettings.password) {
-      if (this.client) this.client.end();
-      this.client = await this.getClient(newSettings);
+    if (changedKeys.includes('interval')) {
+      this.startPolling(newSettings.interval);
     }
   }
 
+  // Also called by the driver during pairing, with `this` bound to the driver.
   async getClient(settings) {
-    const client = IVTClient({
-      serialNumber: settings.serial,
-      accessKey: settings.key,
-      password: settings.password,
-      retryTimeout: 10000, 
-      maxRetries: 5
+    const client = await createGatewayClient(settings, {
+      onError: (err) => this.error('XMPP Client Error:', err.message),
     });
-
-    client.on('error', (err) => { 
-        // Log basic error message but prevent app crash
-        this.error('XMPP Client Error:', err.message); 
-    });
-
-    client.put = function(uri, data) {
-        const encrypted = this.encrypt(typeof data === 'string' ? data : JSON.stringify(data));
-        const separator = '\n\n';
-        const message = this.buildMessage([
-          `PUT ${ uri } HTTP/1.1`,
-          `User-Agent: ${ this.USERAGENT }`,
-          `Content-Type: application/json`,
-          `Content-Length: ${ encrypted.length }`,
-          `Seq-No: ${ this.seqno++ }`,
-          ``,
-          encrypted
-        ].join(separator));
-
-        return this.send(message).then(response => {
-          const status = Number(response.statusCode || 500);
-          if (status >= 300) {
-            const error = new Error('INVALID_RESPONSE');
-            error.response = response;
-            throw error;
-          } else if (status === 204) { response.body = null; }
-          return response.body || { status : 'ok' };
-        });
-    };
-
-    await client.connect();
-    this.log(`Device connected`);
+    this.log('Device connected');
     return client;
   }
 
   async onDeleted() {
-    clearInterval(this.interval);
+    this.homey.clearInterval(this.interval);
     if (this.client) this.client.end();
+    this.client = null;
   }
+
 }
 
 module.exports = HeatPumpDevice;

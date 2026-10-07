@@ -3,3 +3,5 @@
 /.homeybuild/
 /.idea/
 app.json
+*.env
+secrets.*
